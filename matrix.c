@@ -4,112 +4,208 @@
 #include "matrix.h"
 #include <math.h>
 
+#define DEBUG
 
-SqrMatrix CreateSqrMatrix(int n){
-	SqrMatrix mat;
-	mat.order = n;
-	mat.mat = (float**)malloc(mat.order * sizeof(float*));
-		for (int i=0; i<mat.order; i++)
-			mat.mat[i] = (float*)calloc(mat.order, sizeof(float));
-	return mat;
-}
+// #ifdef DEBUG
+// printf("hello world\n");
+// #endif
 
+	
 
+// matrix allocation
+////////////////////////////////////////////////////////////
 Matrix CreateMatrix(int rows, int cols){
-	Matrix mat;
-	mat.rows = rows;
-	mat.cols = cols;
-	mat.mat = (float**)malloc(mat.rows * sizeof(float*));
-		for (int i=0; i<mat.rows; i++)
-			mat.mat[i] = (float*)calloc(mat.cols, sizeof(float));
-	return mat;
+	Matrix A;
+	if(rows<1 || cols<1){
+		printf("error creating matrix, row or col must be >=1");
+		return A;
+	}
+	A.rows = rows;
+	A.cols = cols;
+	A.mat = (float**)malloc(rows * sizeof(float*));
+		for (int i=0; i<rows; i++)
+			A.mat[i] = (float*)calloc(cols, sizeof(float));
+	return A;
+}
+
+Matrix CreateSqrMatrix(int n){
+	Matrix A = CreateMatrix(n,n);
+	return A;
+}
+
+Matrix CreateRowVector(int n){
+	Matrix A = CreateMatrix(1,n);
+	return A;
+}
+
+Matrix CreateColumnVector(int n){
+	Matrix A = CreateMatrix(n,1);
+	return A;	
+} 
+
+int setMatrixEntry(Matrix* A, int row, int col, float val){
+	if(A==NULL){
+		printf("error, matrix is null pointer\n");
+		return -1;
+	}
+	if(row<0||row>(A->rows-1)){
+		printf("Error, row out of bounds\n");
+		return -1;
+	}
+	if(col<0||col>(A->cols-1)){
+		printf("Error, row out of bounds\n");
+		return -1;
+	}
+	A->mat[row-1][col-1] = val;
+	return 0;
 }
 
 
-SS_filter CreateSSfilter(SqrMatrix A, Matrix B, Matrix C, float dt){
+int getMatrixEntry(Matrix* A, int row, int col, float* val){
+	if(A==NULL){
+		printf("error, A is null pointer\n");
+		return -1;
+	}
+	if(row<0||row>(A->rows-1)){
+		printf("Error, row out of bounds\n");
+		return -1;
+	}
+	if(col<0||col>(A->cols-1)){
+		printf("Error, row out of bounds\n");
+		return -1;
+	}
+	*val = A->mat[row-1][col-1];
+	return 0;
+}
+
+
+int getVectorEntry(Matrix* A, int pos, float* val){
+	if(A==NULL){
+		printf("error, A is null pointer\n");
+		return -1;
+	}
+	if(A->rows!=1 && A->cols!=1){
+		printf("error: Matrix A is not a vector\n");
+		return -1;
+	}
+	
+	int row, col;
+	if(A->cols==1){
+		row = pos-1;
+		col = 0;
+	}
+	else {
+		col = pos-1;
+	}	row = 0;
+	
+	*val = A->mat[row][col];
+	return 0;
+}
+////////////////////////////////////////////////////////////
+
+
+
+SS_filter CreateSSfilter(Matrix A, Matrix B, Matrix C, float dt){
 	SS_filter filter;
 	
-	filter.states  = A.order;
+	// error handling ////////////
+
+	
+	
+	
+	filter.states  = A.rows;
 	filter.inputs  = B.cols;
 	filter.outputs = C.rows;
 	
-	filter.X0 = CreateVector(filter.states);
-	filter.X1 = CreateVector(filter.states);
-	filter.Y  = CreateVector(filter.outputs);
+	filter.X0 = CreateColumnVector(filter.states);
+	filter.X1 = CreateColumnVector(filter.states);
+	filter.Y  = CreateRowVector(filter.outputs);
 	
 	filter.F = CreateSqrMatrix(filter.states);
 	filter.G = CreateMatrix(filter.states,filter.inputs);
 	filter.H = CreateMatrix(filter.outputs,filter.states);
 	
-	filter.F = discrete_F(A, dt);
-	filter.G = discrete_G(A, B, dt);
+	filter.F = C2D_A2F(A, dt);
+	filter.G = C2D_B2G(A, B, dt);
 	filter.H = C;
 
 	return filter;
 }
 
-float* marchFilter(SS_filter* sys, float input[]){
-	float* output = CreateVector(&sys->outputs);
+int marchFilter(SS_filter* sys, Matrix input){
 	
-	float sum1 = 0;
-	float sum2 = 0;
+	Matrix FX;	// temporary matrix structs
+	Matrix Gu;
 	
-	for (int i=0;i<sys->states;i++){
-		for (int j=0;j<sys->states;j++){
-			sum1 = sum1 + sys->F->mat[i][j]*sys->X0[j];
-		}
-		for (int k=0;k<sys->inputs;k++){
-			sum2 = sum2 + sys->G->mat[i][k]*input[k];
-		}
-		sys->X1[i] = sum1 + sum2;
-		printf("X1 = %f\n",sys->X1[i]);
-		sum1 = 0;
-		sum2 = 0;
-	}
-	for (int i=0;i<sys->outputs;i++){
-		for (int j=0;j<sys->states;j++){
-			sum1 = sum1 + sys->H->mat[i][j]*sys->X0[j];
-		}
-		output[i] = sum1;
-		sum1 = 0;
-	}
+	multiplyMatrices(&sys->F, &sys->X0, &FX);
+	multiplyMatrices(&sys->G, &input, &Gu);
 	
+	addMatrices(&FX, &Gu, &sys->X1);
+
+	printf("y = %f\n",sys->X0.mat[2][0]*sys->H.mat[0][2]);
+
 	sys->X0 = sys->X1;
-	return output;
+	return 0;
 }
 
-
-
-
-
-float* CreateVector(int n){
-	float* vector;
-	vector = malloc(n*sizeof(float));
-	return vector;
+int multiplyMatrices(Matrix* A, Matrix* B, Matrix* out){
+	if (A->cols != B->rows){
+		printf("Invalid matrix sizes");
+		return -1;
+	}
+	Matrix result = CreateMatrix(A->rows, B->cols);
+	*out = result;	
+	
+	float sum = 0;
+	
+	for (int i=0;i<(A->rows);i++){
+		for (int j=0;j<(B->cols);j++){	
+			for (int k=0;k<(A->cols);k++){
+				// do the matrix multiplication
+				sum = sum + A->mat[i][k]*B->mat[k][j];
+			}
+			// save mult sum to new location
+			out->mat[i][j] = sum;
+			sum = 0; 	// re-initialize sum for next loop
+		}
+	}
+	return 0;
 }
 
+int addMatrices(Matrix* A, Matrix* B, Matrix* out){
+	if ((A->rows != B->rows)||(A->cols != B->cols)){
+		printf("Invalid matrix sizes");
+		return -1;
+	}
+	
+	Matrix result = CreateMatrix(A->rows, A->cols);
+	*out = result;
+	
+	for (int i=0;i<(A->rows);i++){
+		for (int j=0;j<(A->cols);j++){	
+			out->mat[i][j] = A->mat[i][j] + B->mat[i][j];
+		}
+	}
+	return 0;
+}
 
-//simple factorial function for input of >= 0
-// int factorial(int num){
-	// int i;
-	// int out = 1;
-	// if (num < 0)
-		// printf("factorial can't be negative");
-	// else {
-		// for (i=1;i<num;i++){
-			// out = out*i;
-		// }
-	// }
-	// return out;
-// }
+void printMatrix(Matrix A){
+	printf("\n");
+	for (int i=0;i<A.rows;i++){
+		for (int j=0;j<A.cols;j++){
+			printf("%f\t",A.mat[i][j]);
+		}	
+		printf("\n");
+	}
+}	
 
 
 // Using CT A matrix and time step, get DT F matrix
-SqrMatrix discrete_F(SqrMatrix A, float h){
-	int m = A.order;
-	SqrMatrix sumold = CreateSqrMatrix(m);
-	SqrMatrix sumnew = CreateSqrMatrix(m);
-	SqrMatrix result = CreateSqrMatrix(m);
+Matrix C2D_A2F(Matrix A, float h){
+	int m = A.rows;
+	Matrix sumold = CreateSqrMatrix(m);
+	Matrix sumnew = CreateSqrMatrix(m);
+	Matrix result = CreateSqrMatrix(m);
 	float sum = 0;
 
 	// initialize identity matrix
@@ -144,12 +240,12 @@ SqrMatrix discrete_F(SqrMatrix A, float h){
 	
 
 // Using CT A and B matrices and time step, get DT G matrix
-Matrix discrete_G(SqrMatrix A, Matrix B, float h){
+Matrix C2D_B2G(Matrix A, Matrix B, float h){
 	
-	int m = A.order;
-	SqrMatrix sumold = CreateSqrMatrix(m);
-	SqrMatrix sumnew = CreateSqrMatrix(m);
-	SqrMatrix result = CreateSqrMatrix(m);
+	int m = A.rows;
+	Matrix sumold = CreateSqrMatrix(m);
+	Matrix sumnew = CreateSqrMatrix(m);
+	Matrix result = CreateSqrMatrix(m);
 	float sum = 0;
 	Matrix G = CreateMatrix(B.rows,B.cols);
 
@@ -190,7 +286,6 @@ Matrix discrete_G(SqrMatrix A, Matrix B, float h){
 	}
 	return G;
 }
-
 
 
 
