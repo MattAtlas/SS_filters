@@ -53,7 +53,7 @@ int setMatrixEntry(Matrix* A, int row, int col, float val){
 		return -1;
 	}
 	if(col<0||col>(A->cols-1)){
-		printf("Error, row out of bounds\n");
+		printf("Error, col out of bounds\n");
 		return -1;
 	}
 	A->mat[row-1][col-1] = val;
@@ -71,7 +71,7 @@ int getMatrixEntry(Matrix* A, int row, int col, float* val){
 		return -1;
 	}
 	if(col<0||col>(A->cols-1)){
-		printf("Error, row out of bounds\n");
+		printf("Error, col out of bounds\n");
 		return -1;
 	}
 	*val = A->mat[row-1][col-1];
@@ -189,16 +189,60 @@ int addMatrices(Matrix* A, Matrix* B, Matrix* out){
 	return 0;
 }
 
-void printMatrix(Matrix A){
+void printMatrix(Matrix* A){
 	printf("\n");
-	for (int i=0;i<A.rows;i++){
-		for (int j=0;j<A.cols;j++){
-			printf("%f\t",A.mat[i][j]);
+	for (int i=0;i<A->rows;i++){
+		for (int j=0;j<A->cols;j++){
+			printf("%f\t",A->mat[i][j]);
 		}	
 		printf("\n");
 	}
 }	
 
+float getDetMatrix(Matrix* A){
+
+	if (A->rows != A->cols){
+		printf("Error: Matrix is not square");
+		return -1;
+	}
+	float ratio,det;
+
+	for(int i=0;i<A->rows;i++){
+        for(int j=0;j<A->rows;j++){
+            if(j>i){
+                ratio = A->mat[j][i]/A->mat[i][i];
+                for(int k=0;k<A->rows;k++){
+                    A->mat[j][k] -= ratio * A->mat[i][k];
+                }
+            }
+        }
+    }
+	det = 1; //storage for determinant
+
+    for(int i=0;i<A->rows;i++) det *= A->mat[i][i];
+
+    return det;  
+}
+
+
+int invertMatrix(Matrix* A, Matrix* out){
+	
+	if (getDetMatrix(A) == 0){
+		printf("Error: Matrix is not invertable");
+		return -1;
+	}
+	
+	Matrix result = CreateSqrMatrix(A->rows);
+	*out = result;
+	
+	for (int i=0;i<A->rows;i++){
+		for (int j=0;j<A->rows;j++){
+			
+			
+		}
+	}
+	
+}
 
 // Using CT A matrix and time step, get DT F matrix
 Matrix C2D_A2F(Matrix A, float h){
