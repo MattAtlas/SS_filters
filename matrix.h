@@ -34,10 +34,11 @@ Matrix CreateColumnVector(int n);
 // Matrix operations
 int multiplyMatrices(Matrix* A, Matrix* B, Matrix* out);
 int addMatrices(Matrix* A, Matrix* B, Matrix* out);
-int invertMatrix(Matrix A, Matrix* out);
-float getDetMatrix(Matrix A);
+int invertMatrix(Matrix* A, Matrix* out);
 
-void printMatrix(Matrix A);
+float getDetMatrix(Matrix* A);
+
+void printMatrix(Matrix* A);
 
 // convertions from continuous to discrete time
 Matrix C2D_A2F(Matrix A, float h);
