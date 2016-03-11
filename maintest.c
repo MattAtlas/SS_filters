@@ -35,9 +35,11 @@ int main()
 		marchFilter(&sys,u);
 	}
 	
-	printMatrix(sys.F);
+	printMatrix(&sys.F);
 	
-	printMatrix(sys.G);
+	printMatrix(&sys.G);
+	
+	getDetMatrix(&A);
 	
 	return 0;
 }
