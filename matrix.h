@@ -2,11 +2,6 @@
 #define MATRIX_H_
 
 
-typedef struct SqrMatrix{
-	int order;
-	float** mat;
-}SqrMatrix;
-
 typedef struct Matrix{
 	int rows;
 	int cols;
@@ -18,22 +13,42 @@ typedef struct SS_filter{
 	int states;
 	int inputs;
 	int outputs;
-	SqrMatrix F;
+	Matrix F;
 	Matrix G;
 	Matrix H;
-	float* X0;
-	float* X1;
-	float* Y;
+	Matrix X0;
+	Matrix X1;
+	Matrix Y;
 }SS_filter;
 
-SqrMatrix CreateSqrMatrix(int n);
+// all arrays, 1D & 2D are stored in a matrix struct
+// like matlab. Use handy functions
 Matrix CreateMatrix(int rows, int cols);
-float* CreateVector(int n);
-float* marchFilter(SS_filter* sys, float input[]);
-//int factorial(int num);
+int setMatrixEntry(Matrix* A, int row, int col, float val);
+int getMatrixEntry(Matrix* A, int row, int col, float* val);
+int getVectorEntry(Matrix* A, int pos, float* val);
+Matrix CreateSqrMatrix(int n);
+Matrix CreateRowVector(int n);
+Matrix CreateColumnVector(int n);
 
-SqrMatrix discrete_F(SqrMatrix A, float h);
+// Matrix operations
+int multiplyMatrices(Matrix* A, Matrix* B, Matrix* out);
+int addMatrices(Matrix* A, Matrix* B, Matrix* out);
+int invertMatrix(Matrix A, Matrix* out);
+float getDetMatrix(Matrix A);
 
-Matrix discrete_G(SqrMatrix A, Matrix B, float h);
-SS_filter CreateSSfilter(SqrMatrix A, Matrix B, Matrix C,float dt);
+void printMatrix(Matrix A);
+
+// convertions from continuous to discrete time
+Matrix C2D_A2F(Matrix A, float h);
+Matrix C2D_B2G(Matrix A, Matrix B, float h);
+
+// construct and allocate memory for a discrete time filter
+SS_filter CreateSSfilter(Matrix A, Matrix B, Matrix C,float dt);
+
+// March discrete filter forward using a new input
+// returns 1 or 0 for success or failure
+// user can grab new output from sys
+int marchFilter(SS_filter* sys, Matrix input);
+
 #endif
