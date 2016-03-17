@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 #include "matrix.h"
 
 
@@ -31,15 +32,32 @@ int main()
 	sys.X0.mat[1][0] = 0;
 	sys.X0.mat[2][0] = 0;	
 	
+	float buffer[250] = {0};
+	
+
+	FILE *fp = fopen("file.txt", "w+");
+	if (fp == NULL){
+		printf("Error opening file!\n");
+		exit(-1);
+	}
+
 	for (int i=0;i<250;i++){
 		marchFilter(&sys,u);
+		buffer[i] = sys.X0.mat[2][0]*5;
+		
+	}
+	for (int i=0;i<250;i++){
+	fprintf(fp,"%f\n",buffer[i]);
 	}
 	
-	printMatrix(&sys.F);
+	fclose(fp);
+	Matrix Test = CreateSqrMatrix(3);
 	
-	printMatrix(&sys.G);
+	invertMatrix(&sys.F,&Test);
 	
-	getDetMatrix(&A);
+	printMatrix(Test);
+	
+	
 	
 	return 0;
 }
