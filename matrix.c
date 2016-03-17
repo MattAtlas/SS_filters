@@ -105,6 +105,9 @@ int getVectorEntry(Matrix* A, int pos, float* val){
 
 
 
+
+
+
 SS_filter CreateSSfilter(Matrix A, Matrix B, Matrix C, float dt){
 	SS_filter filter;
 	
@@ -128,6 +131,12 @@ SS_filter CreateSSfilter(Matrix A, Matrix B, Matrix C, float dt){
 	filter.F = C2D_A2F(A, dt);
 	filter.G = C2D_B2G(A, B, dt);
 	filter.H = C;
+	
+	filter.saturation_en = 0;
+	filter.saturation_high = CreateColumnVector(filter.inputs);
+	filter.saturation_low  = CreateColumnVector(filter.inputs);
+	
+	filter.K = CreateMatrix(filter.inputs,filter.states);
 
 	return filter;
 }
@@ -136,6 +145,20 @@ int marchFilter(SS_filter* sys, Matrix input){
 	
 	Matrix FX;	// temporary matrix structs
 	Matrix Gu;
+	
+	if (input.rows != sys->G.cols){
+		printf("Error: input vector size mismatch");
+		return -1;
+	}
+	
+	if (sys->saturation_en == 1){
+		for (int i=0;i<input.rows;i++){
+			if (input.mat[i][0] < sys->saturation_low.mat[i][0]){
+			input.mat[i][0] = sys->saturation_low.mat[i][0];}
+			if (input.mat[i][0] > sys->saturation_high.mat[i][0]){
+			input.mat[i][0] = sys->saturation_high.mat[i][0];}
+		}
+	}
 	
 	multiplyMatrices(&sys->F, &sys->X0, &FX);
 	multiplyMatrices(&sys->G, &input, &Gu);
@@ -172,6 +195,16 @@ int multiplyMatrices(Matrix* A, Matrix* B, Matrix* out){
 	return 0;
 }
 
+int scalarMultiply(Matrix A, float s){
+	
+	for (int i=0;i<(A.rows);i++){
+		for (int j=0;j<(A.cols);j++){	
+			A.mat[i][j] = s*A.mat[i][j];
+		}
+	}
+	return 0;
+}
+
 int addMatrices(Matrix* A, Matrix* B, Matrix* out){
 	if ((A->rows != B->rows)||(A->cols != B->cols)){
 		printf("Invalid matrix sizes");
@@ -189,45 +222,65 @@ int addMatrices(Matrix* A, Matrix* B, Matrix* out){
 	return 0;
 }
 
-void printMatrix(Matrix* A){
+void printMatrix(Matrix A){
 	printf("\n");
-	for (int i=0;i<A->rows;i++){
-		for (int j=0;j<A->cols;j++){
-			printf("%f\t",A->mat[i][j]);
+	for (int i=0;i<A.rows;i++){
+		for (int j=0;j<A.cols;j++){
+			printf("%f\t",A.mat[i][j]);
 		}	
 		printf("\n");
 	}
 }	
 
-float getDetMatrix(Matrix* A){
 
-	if (A->rows != A->cols){
+// copy information of one matrix to a new memory location 
+Matrix duplicateMatrix(Matrix A){
+	Matrix temp = CreateMatrix(A.rows,A.cols);
+	for(int i=0;i<A.rows;i++){
+        for(int j=0;j<A.cols;j++){
+			temp.mat[i][j] = A.mat[i][j];
+		}
+	}
+	return temp;
+}
+
+
+float getDetMatrix(Matrix A){
+
+	if (A.rows != A.cols){
 		printf("Error: Matrix is not square");
 		return -1;
 	}
 	float ratio,det;
 
-	for(int i=0;i<A->rows;i++){
-        for(int j=0;j<A->rows;j++){
+	Matrix temp = duplicateMatrix(A);
+	
+	for(int i=0;i<A.rows;i++){
+        for(int j=0;j<A.rows;j++){
             if(j>i){
-                ratio = A->mat[j][i]/A->mat[i][i];
-                for(int k=0;k<A->rows;k++){
-                    A->mat[j][k] -= ratio * A->mat[i][k];
+				ratio = temp.mat[j][i]/temp.mat[i][i];
+                for(int k=0;k<A.rows;k++){
+                    temp.mat[j][k] = temp.mat[j][k] - ratio * temp.mat[i][k];
                 }
             }
         }
     }
 	det = 1; //storage for determinant
-
-    for(int i=0;i<A->rows;i++) det *= A->mat[i][i];
+    for(int i=0;i<A.rows;i++) det = det*temp.mat[i][i];
 
     return det;  
 }
 
 
+
 int invertMatrix(Matrix* A, Matrix* out){
 	
-	if (getDetMatrix(A) == 0){
+	float det,coDet;
+	
+	det = getDetMatrix(*A);
+	
+	printf("det = %f\n",det);
+	if (det == 0){
 		printf("Error: Matrix is not invertable");
 		return -1;
 	}
@@ -235,14 +288,32 @@ int invertMatrix(Matrix* A, Matrix* out){
 	Matrix result = CreateSqrMatrix(A->rows);
 	*out = result;
 	
-	for (int i=0;i<A->rows;i++){
-		for (int j=0;j<A->rows;j++){
-			
-			
+	Matrix cofactors = CreateSqrMatrix(A->rows - 1);
+	int i,j,ii,jj,i1,j1;
+
+	for (i=0;i<A->rows;i++){					// current row of A to test
+		for (j=0;j<A->rows;j++){				// current col of A to test
+
+			i1 = 0;								// index for cofactor row
+			for (ii=0;ii<A->rows;ii++){			// count up thru # of rows of A
+				if (ii == i) continue;			// if = to current row of A.. skip
+										
+				j1 = 0;							// index for cofactor col
+				for (jj=0;jj<A->rows;jj++){		// count up thru # of cols of A
+					if (jj == j) continue;		// if = to current col of A.. skip
+						
+					cofactors.mat[i1][j1] = A->mat[ii][jj]; 	// place proper element in new matrix
+					j1++;
+				}
+				i1++;
+			}
+			coDet = getDetMatrix(cofactors);
+			out->mat[j][i] = (pow(-1.0,i+j+2.0) * coDet)/det; 	// saves as transpose
 		}
 	}
-	
+	return 0;
 }
+
 
 // Using CT A matrix and time step, get DT F matrix
 Matrix C2D_A2F(Matrix A, float h){
@@ -330,7 +401,6 @@ Matrix C2D_B2G(Matrix A, Matrix B, float h){
 	}
 	return G;
 }
-
 
 
 
