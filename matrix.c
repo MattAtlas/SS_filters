@@ -133,6 +133,7 @@ SS_filter CreateSSfilter(Matrix A, Matrix B, Matrix C, float dt){
 	filter.H = C;
 	
 	filter.saturation_en = 0;
+	filter.saturation_flag = 0;
 	filter.saturation_high = CreateColumnVector(filter.inputs);
 	filter.saturation_low  = CreateColumnVector(filter.inputs);
 	
@@ -140,6 +141,28 @@ SS_filter CreateSSfilter(Matrix A, Matrix B, Matrix C, float dt){
 
 	return filter;
 }
+
+int saturate(SS_filter* sys, Matrix* input){
+	
+	for (int i=0;i<sys->inputs;i++){
+		if (&input[i] > sys->saturation_high[i]){
+			&input[i] = sys->saturation_high[i];
+			
+			sys->saturation_flag = 1;
+		}
+		else if(&input[i] < sys->saturation_low[i]){
+				&input[i] = sys->saturation_low[i];
+			
+			sys->saturation_flag = 1;
+		}
+		else{
+			sys->saturation_flag = 0;
+		}
+	}
+	
+	return 0;
+}
+	
 
 int marchFilter(SS_filter* sys, Matrix input){
 	
@@ -401,7 +424,6 @@ Matrix C2D_B2G(Matrix A, Matrix B, float h){
 	}
 	return G;
 }
-
 
 
 
