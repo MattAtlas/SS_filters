@@ -21,8 +21,8 @@ typedef struct CT_SS_filter{
 	Matrix A;
 	Matrix B;
 	Matrix C; 
-	Matrix X0;
-	Matrix X1;
+	Matrix Xnew;
+	Matrix Xold;
 	Matrix Y;
 	Matrix K;
 	Matrix L;
@@ -42,8 +42,8 @@ typedef struct DT_SS_filter{
 	Matrix F;
 	Matrix G;
 	Matrix H; 
-	Matrix X0;
-	Matrix X1;
+	Matrix Xnew;
+	Matrix Xold;
 	Matrix Y;
 	Matrix K;
 	Matrix L;
