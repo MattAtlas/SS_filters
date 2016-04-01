@@ -39,7 +39,7 @@ int main()
 
 	for (int i=0;i<250;i++){
 		marchFilter(&DT_sys,u);
-		buffer[i] = DT_sys.X0.mat[2][0]*5;
+		buffer[i] = DT_sys.Xold.mat[2][0]*5;
 		
 	}
 	for (int i=0;i<250;i++){
@@ -48,9 +48,9 @@ int main()
 	
 	fclose(fp);
 
-	Matrix Test = CreateSqrMatrix(3);
+	//Matrix Test = CreateSqrMatrix(3);
 	
-	invertMatrix(&DT_sys.F,&Test);
+	//invertMatrix(&DT_sys.F,&Test);
 	
 	printMatrix(CT_sys.A);
 	printMatrix(CT_sys.B);
