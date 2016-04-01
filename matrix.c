@@ -114,8 +114,8 @@ CT_SS_filter CreateCTSSfilter(int states, int inputs, int outputs){
 	filter.B = CreateMatrix(filter.states,filter.inputs);
 	filter.C = CreateMatrix(filter.outputs,filter.states);
 	
-	filter.X0 = CreateColumnVector(filter.states);
-	filter.X1 = CreateColumnVector(filter.states);
+	filter.Xold = CreateColumnVector(filter.states);
+	filter.Xnew = CreateColumnVector(filter.states);
 	filter.Y  = CreateRowVector(filter.outputs);
 
 	
@@ -143,8 +143,8 @@ DT_SS_filter CreateDTSSfilter(CT_SS_filter* CT_sys, float dt){
 	filter.inputs  = CT_sys->B.cols;
 	filter.outputs = CT_sys->C.rows;
 	
-	filter.X0 = CreateColumnVector(filter.states);
-	filter.X1 = CreateColumnVector(filter.states);
+	filter.Xold = CreateColumnVector(filter.states);
+	filter.Xnew = CreateColumnVector(filter.states);
 	filter.Y  = CreateRowVector(filter.outputs);
 	
 	filter.F = CreateSqrMatrix(filter.states);
@@ -167,6 +167,9 @@ DT_SS_filter CreateDTSSfilter(CT_SS_filter* CT_sys, float dt){
 	return filter;
 }
 
+
+
+
 int tf2ss(Matrix b, Matrix a, CT_SS_filter* CT_sys){
 	
 	// make sure it's proper
@@ -175,21 +178,15 @@ int tf2ss(Matrix b, Matrix a, CT_SS_filter* CT_sys){
 		return -1;
 	}
 	
+	// make new b vector the same length as a
 	Matrix b_temp = CreateRowVector(a.cols);
 	// allocate memory for zero coeffs
-	if (b.cols < a.cols){
-		
-		for(int i=1;i<=b.cols;i++){
-			b_temp.mat[0][a.cols - i] = b.mat[0][b.cols - i];
-		}
-		
-		// Matrix b = CreateRowVector(a.cols);
-		// for(int i=0;i<a.cols;i++){
-			// b.mat[0][i] = temp.mat[0][i];
-		// }
+
+	// put the values of b in new b starting at the end	
+	for(int i=1;i<=b.cols;i++){
+		b_temp.mat[0][a.cols - i] = b.mat[0][b.cols - i];
 	}
-	
-	
+
 	if (a.mat[0][0] != 1){
 		float coeff = a.mat[0][0];
 		for (int i=0;i<=a.cols;i++){	
@@ -248,7 +245,9 @@ int marchFilter(DT_SS_filter* DT_sys, Matrix input){
 	
 	Matrix FX;	// temporary matrix structs
 	Matrix Gu;
-	DT_sys->X0 = DT_sys->X1;
+	
+	
+	DT_sys->Xold = DT_sys->Xnew;
 	
 	if (input.rows != DT_sys->G.cols){
 		printf("Error: input vector size mismatch");
@@ -258,23 +257,26 @@ int marchFilter(DT_SS_filter* DT_sys, Matrix input){
 	if (DT_sys->saturation_en == 1){
 		for (int i=0;i<input.rows;i++){
 			if (input.mat[i][0] < DT_sys->saturation_low.mat[i][0]){
-			input.mat[i][0] = DT_sys->saturation_low.mat[i][0];}
+				input.mat[i][0] = DT_sys->saturation_low.mat[i][0];
+				DT_sys->saturation_flag = 1;
+			}
 			if (input.mat[i][0] > DT_sys->saturation_high.mat[i][0]){
-			input.mat[i][0] = DT_sys->saturation_high.mat[i][0];}
+				input.mat[i][0] = DT_sys->saturation_high.mat[i][0];
+				DT_sys->saturation_flag = 1;
+			}
 		}
 	}
 	
-	multiplyMatrices(&DT_sys->F, &DT_sys->X1, &FX);
+	multiplyMatrices(&DT_sys->F, &DT_sys->Xold, &FX);
 	multiplyMatrices(&DT_sys->G, &input, &Gu);
 	
-	addMatrices(&FX, &Gu, &DT_sys->X0);
+	addMatrices(&FX, &Gu, &DT_sys->Xnew);
 
 	#ifdef DEBUG
-	printf("y = %f\n",DT_sys->X1.mat[2][0]*DT_sys->H.mat[0][2]);
+	// output y is estimate of sensor data
+	printf("y = %f\n",DT_sys->Xold.mat[2][0]*DT_sys->H.mat[0][2]);
 	#endif
 	
-
-
 	return 0;
 }
 
@@ -302,6 +304,7 @@ int multiplyMatrices(Matrix* A, Matrix* B, Matrix* out){
 	return 0;
 }
 
+
 int scalarMultiply(Matrix A, float s){
 	
 	for (int i=0;i<(A.rows);i++){
@@ -311,6 +314,7 @@ int scalarMultiply(Matrix A, float s){
 	}
 	return 0;
 }
+
 
 int addMatrices(Matrix* A, Matrix* B, Matrix* out){
 	if ((A->rows != B->rows)||(A->cols != B->cols)){
@@ -328,6 +332,7 @@ int addMatrices(Matrix* A, Matrix* B, Matrix* out){
 	}
 	return 0;
 }
+
 
 void printMatrix(Matrix A){
 	printf("\n");
