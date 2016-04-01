@@ -6,9 +6,7 @@
 
 #define DEBUG
 
-// #ifdef DEBUG
-// printf("hello world\n");
-// #endif
+
 
 	
 
@@ -103,22 +101,47 @@ int getVectorEntry(Matrix* A, int pos, float* val){
 }
 ////////////////////////////////////////////////////////////
 
-
-
-
-
-
-SS_filter CreateSSfilter(Matrix A, Matrix B, Matrix C, float dt){
-	SS_filter filter;
+// Sets up all matrices for system
+CT_SS_filter CreateCTSSfilter(int states, int inputs, int outputs){
+	CT_SS_filter filter;
 	
 	// error handling ////////////
+	filter.states  = states;
+	filter.inputs  = inputs;
+	filter.outputs = outputs;
+	
+	filter.A = CreateSqrMatrix(filter.states);
+	filter.B = CreateMatrix(filter.states,filter.inputs);
+	filter.C = CreateMatrix(filter.outputs,filter.states);
+	
+	filter.X0 = CreateColumnVector(filter.states);
+	filter.X1 = CreateColumnVector(filter.states);
+	filter.Y  = CreateRowVector(filter.outputs);
 
 	
+	filter.saturation_en = 0;
+	filter.saturation_flag = 0;
+	filter.saturation_high = CreateColumnVector(filter.inputs);
+	filter.saturation_low  = CreateColumnVector(filter.inputs);
 	
+	filter.K = CreateMatrix(filter.inputs,filter.states);
+	filter.L = CreateMatrix(filter.states,filter.outputs);
 	
-	filter.states  = A.rows;
-	filter.inputs  = B.cols;
-	filter.outputs = C.rows;
+	return filter;
+}
+
+
+
+// Sets up all matrices for system
+DT_SS_filter CreateDTSSfilter(CT_SS_filter* CT_sys, float dt){
+	DT_SS_filter filter;
+	
+	// error handling ////////////
+	filter.dt = dt;
+
+	filter.states  = CT_sys->A.rows;
+	filter.inputs  = CT_sys->B.cols;
+	filter.outputs = CT_sys->C.rows;
 	
 	filter.X0 = CreateColumnVector(filter.states);
 	filter.X1 = CreateColumnVector(filter.states);
@@ -127,10 +150,11 @@ SS_filter CreateSSfilter(Matrix A, Matrix B, Matrix C, float dt){
 	filter.F = CreateSqrMatrix(filter.states);
 	filter.G = CreateMatrix(filter.states,filter.inputs);
 	filter.H = CreateMatrix(filter.outputs,filter.states);
-	
-	filter.F = C2D_A2F(A, dt);
-	filter.G = C2D_B2G(A, B, dt);
-	filter.H = C;
+
+	// DT model of system	
+	filter.F = C2D_A2F(CT_sys->A, filter.dt);
+	filter.G = C2D_B2G(CT_sys->A, CT_sys->B, filter.dt);
+	filter.H = CT_sys->C;
 	
 	filter.saturation_en = 0;
 	filter.saturation_flag = 0;
@@ -138,11 +162,67 @@ SS_filter CreateSSfilter(Matrix A, Matrix B, Matrix C, float dt){
 	filter.saturation_low  = CreateColumnVector(filter.inputs);
 	
 	filter.K = CreateMatrix(filter.inputs,filter.states);
-
+	filter.L = CreateMatrix(filter.states,filter.outputs);
+	
 	return filter;
 }
 
-int saturate(SS_filter* sys, Matrix* input){
+int tf2ss(Matrix b, Matrix a, CT_SS_filter* CT_sys){
+	
+	// make sure it's proper
+	if (b.cols >= a.cols){
+		printf("Error: Improper transfer function\n");
+		return -1;
+	}
+	
+	Matrix b_temp = CreateRowVector(a.cols);
+	// allocate memory for zero coeffs
+	if (b.cols < a.cols){
+		
+		for(int i=1;i<=b.cols;i++){
+			b_temp.mat[0][a.cols - i] = b.mat[0][b.cols - i];
+		}
+		
+		// Matrix b = CreateRowVector(a.cols);
+		// for(int i=0;i<a.cols;i++){
+			// b.mat[0][i] = temp.mat[0][i];
+		// }
+	}
+	
+	
+	if (a.mat[0][0] != 1){
+		float coeff = a.mat[0][0];
+		for (int i=0;i<=a.cols;i++){	
+			a.mat[0][i] = a.mat[0][i] / coeff;	
+			b_temp.mat[0][i] = b_temp.mat[0][i] / coeff;
+		}
+	}
+
+	// Fill in A matrix
+	for (int i=0;i<a.cols-2;i++){
+		CT_sys->A.mat[i+1][i] = 1;			// fill in lower identity
+	}
+	for (int i=0;i<a.cols-1;i++){
+		CT_sys->A.mat[0][i] = -a.mat[0][i+1];	// fill in top row
+	}
+	printMatrix(CT_sys->A);
+	
+	CT_sys->B.mat[0][0] = 1;
+	
+	for (int i=0;i<a.cols-1;i++){
+		CT_sys->C.mat[0][i] = b_temp.mat[0][i+1];
+	}
+	
+	return 0;
+}
+
+
+
+
+
+
+/*
+int saturate(DT_SS_filter* sys, Matrix* input){
 	
 	for (int i=0;i<sys->inputs;i++){
 		if (&input[i] > sys->saturation_high[i]){
@@ -162,35 +242,39 @@ int saturate(SS_filter* sys, Matrix* input){
 	
 	return 0;
 }
-	
+*/
 
-int marchFilter(SS_filter* sys, Matrix input){
+int marchFilter(DT_SS_filter* DT_sys, Matrix input){
 	
 	Matrix FX;	// temporary matrix structs
 	Matrix Gu;
+	DT_sys->X0 = DT_sys->X1;
 	
-	if (input.rows != sys->G.cols){
+	if (input.rows != DT_sys->G.cols){
 		printf("Error: input vector size mismatch");
 		return -1;
 	}
 	
-	if (sys->saturation_en == 1){
+	if (DT_sys->saturation_en == 1){
 		for (int i=0;i<input.rows;i++){
-			if (input.mat[i][0] < sys->saturation_low.mat[i][0]){
-			input.mat[i][0] = sys->saturation_low.mat[i][0];}
-			if (input.mat[i][0] > sys->saturation_high.mat[i][0]){
-			input.mat[i][0] = sys->saturation_high.mat[i][0];}
+			if (input.mat[i][0] < DT_sys->saturation_low.mat[i][0]){
+			input.mat[i][0] = DT_sys->saturation_low.mat[i][0];}
+			if (input.mat[i][0] > DT_sys->saturation_high.mat[i][0]){
+			input.mat[i][0] = DT_sys->saturation_high.mat[i][0];}
 		}
 	}
 	
-	multiplyMatrices(&sys->F, &sys->X0, &FX);
-	multiplyMatrices(&sys->G, &input, &Gu);
+	multiplyMatrices(&DT_sys->F, &DT_sys->X1, &FX);
+	multiplyMatrices(&DT_sys->G, &input, &Gu);
 	
-	addMatrices(&FX, &Gu, &sys->X1);
+	addMatrices(&FX, &Gu, &DT_sys->X0);
 
-	printf("y = %f\n",sys->X0.mat[2][0]*sys->H.mat[0][2]);
+	#ifdef DEBUG
+	printf("y = %f\n",DT_sys->X1.mat[2][0]*DT_sys->H.mat[0][2]);
+	#endif
+	
 
-	sys->X0 = sys->X1;
+
 	return 0;
 }
 
@@ -424,7 +508,6 @@ Matrix C2D_B2G(Matrix A, Matrix B, float h){
 	}
 	return G;
 }
-
 
 
 
