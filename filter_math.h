@@ -55,7 +55,9 @@ DT_SS_filter_t createDTSSfilter(CT_SS_filter_t* CT_sys,float dt);
 
 int marchFilter(DT_SS_filter_t* sys, matrix_t input);
 
-vector_t convolve(vector_t v1, vector_t v2);
+int polyConv(vector_t v1, vector_t v2, vector_t* out);
+int polyPower(vector_t* v, int order);
+vector_t butterPoly(int N, float wc);
 //int saturate(SS_filter* sys, matrix_t* input);
 
 #endif
