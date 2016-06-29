@@ -328,7 +328,7 @@ int polyConv(vector_t v1, vector_t v2, vector_t* out){
 *
 * 
 *******************************************************************************/
-int polyPow(vector_t* v, int N){
+int polyPower(vector_t* v, int N){
 	
 	int i;
 	if(!v->initialized){
