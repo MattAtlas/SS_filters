@@ -25,22 +25,22 @@ CT_SS_filter_t createCTSSfilter(int states, int inputs, int outputs){
 	filter.inputs  = inputs;
 	filter.outputs = outputs;
 	
-	filter.A = createSquareMatrix(filter.states);
-	filter.B = createMatrix(filter.states,filter.inputs);
-	filter.C = createMatrix(filter.outputs,filter.states);
+	filter.A = create_square_matrix(filter.states);
+	filter.B = create_matrix(filter.states,filter.inputs);
+	filter.C = create_matrix(filter.outputs,filter.states);
 	
-	filter.Xold = createVector(filter.states);
-	filter.Xnew = createVector(filter.states);
-	filter.Y    = createVector(filter.outputs);
+	filter.Xold = create_vector(filter.states);
+	filter.Xnew = create_vector(filter.states);
+	filter.Y    = create_vector(filter.outputs);
 
 	
 	filter.saturation_en   = 0;
 	filter.saturation_flag = 0;
-	filter.saturation_high = createVector(filter.inputs);
-	filter.saturation_low  = createVector(filter.inputs);
+	filter.saturation_high = create_vector(filter.inputs);
+	filter.saturation_low  = create_vector(filter.inputs);
 	
-	filter.K = createMatrix(filter.inputs,filter.states);
-	filter.L = createMatrix(filter.states,filter.outputs);
+	filter.K = create_matrix(filter.inputs,filter.states);
+	filter.L = create_matrix(filter.states,filter.outputs);
 	
 	return filter;
 }
@@ -61,13 +61,13 @@ DT_SS_filter_t createDTSSfilter(CT_SS_filter_t* CT_sys, float dt){
 	filter.inputs  = CT_sys->B.cols;
 	filter.outputs = CT_sys->C.rows;
 	
-	filter.Xold = createVector(filter.states);
-	filter.Xnew = createVector(filter.states);
-	filter.Y    = createVector(filter.outputs);
+	filter.Xold = create_vector(filter.states);
+	filter.Xnew = create_vector(filter.states);
+	filter.Y    = create_vector(filter.outputs);
 	
-	filter.F = createSquareMatrix(filter.states);
-	filter.G = createMatrix(filter.states,filter.inputs);
-	filter.H = createMatrix(filter.outputs,filter.states);
+	filter.F = create_square_matrix(filter.states);
+	filter.G = create_matrix(filter.states,filter.inputs);
+	filter.H = create_matrix(filter.outputs,filter.states);
 
 	// DT model of system	
 	filter.F = C2D_A2F(CT_sys->A, filter.dt);
@@ -76,11 +76,11 @@ DT_SS_filter_t createDTSSfilter(CT_SS_filter_t* CT_sys, float dt){
 	
 	filter.saturation_en   = 0;
 	filter.saturation_flag = 0;
-	filter.saturation_high = createVector(filter.inputs);
-	filter.saturation_low  = createVector(filter.inputs);
+	filter.saturation_high = create_vector(filter.inputs);
+	filter.saturation_low  = create_vector(filter.inputs);
 	
-	filter.K = createMatrix(filter.inputs,filter.states);
-	filter.L = createMatrix(filter.states,filter.outputs);
+	filter.K = create_matrix(filter.inputs,filter.states);
+	filter.L = create_matrix(filter.states,filter.outputs);
 	
 	return filter;
 }
@@ -100,7 +100,7 @@ int tf2ss(vector_t b, vector_t a, CT_SS_filter_t* CT_sys){
 		return -1;
 	}
 	// make new b vector the same length as a
-	vector_t b_temp = createVector(a.len);
+	vector_t b_temp = create_vector(a.len);
 	// allocate memory for zero coeffs
 	// put the values of b in new b starting at the end	
 	for(i=1;i<=b.len;i++){
@@ -186,8 +186,8 @@ int marchFilter(DT_SS_filter_t* DT_sys, vector_t input){
 		}
 	}
 	
-	FX = matrixTimesColVec(DT_sys->F, DT_sys->Xold);
-	Gu = matrixTimesColVec(DT_sys->G, input);
+	FX = matrix_times_col_vec(DT_sys->F, DT_sys->Xold);
+	Gu = matrix_times_col_vec(DT_sys->G, input);
 	
 	for(i=0;i<input.len;i++){
 		DT_sys->Xnew.data[i] = FX.data[i] + Gu.data[i];
@@ -210,9 +210,9 @@ int marchFilter(DT_SS_filter_t* DT_sys, vector_t input){
 matrix_t C2D_A2F(matrix_t A, float h){
 	int m = A.rows;
 	int i,j,k,N;
-	matrix_t sumold = createSquareMatrix(m);
-	matrix_t sumnew = createSquareMatrix(m);
-	matrix_t result = createSquareMatrix(m);
+	matrix_t sumold = create_square_matrix(m);
+	matrix_t sumnew = create_square_matrix(m);
+	matrix_t result = create_square_matrix(m);
 	float sum;
 
 	// initialize identity matrix
@@ -253,11 +253,11 @@ matrix_t C2D_A2F(matrix_t A, float h){
 matrix_t C2D_B2G(matrix_t A, matrix_t B, float h){
 	int i,j,k,N;
 	int m = A.rows;
-	matrix_t sumold = createSquareMatrix(m);
-	matrix_t sumnew = createSquareMatrix(m);
-	matrix_t result = createSquareMatrix(m);
+	matrix_t sumold = create_square_matrix(m);
+	matrix_t sumnew = create_square_matrix(m);
+	matrix_t result = create_square_matrix(m);
 	float sum;
-	matrix_t G = createMatrix(B.rows,B.cols);
+	matrix_t G = create_matrix(B.rows,B.cols);
 
 	// initialize identity matrix
 	for(i=0;i<m;i++){		
@@ -299,28 +299,29 @@ matrix_t C2D_B2G(matrix_t A, matrix_t B, float h){
 
 
 /*******************************************************************************
-* int polyConv(vector_t v1, vector_t v2, vector_t* out)
+* int poly_conv(vector_t v1, vector_t v2, vector_t* out)
 *
 * 
 *******************************************************************************/
-int polyConv(vector_t v1, vector_t v2, vector_t* out){
-	
+vector_t poly_conv(vector_t v1, vector_t v2){
+	vector_t out;
 	int m,n,i,j,k;
 	if(!v1.initialized || !v2.initialized){
 		printf("ERROR: vector not initialized yet\n");
-		return -1;
+		return out;
 	}
 	m = v1.len;
 	n = v2.len;
 	k = m+n-1;
-	vector_t C = createVector(k);
+	out = create_vector(k);
+	
 	for(i=0;i<m;i++){
 		for(j=0;j<n;j++){
-			C.data[i+j] += v1.data[i] * v2.data[j];
+			out.data[i+j] += v1.data[i] * v2.data[j];
 		}
 	}
-	*out = C;
-	return 0;	
+	
+	return out;	
 }
 
 /*******************************************************************************
@@ -328,90 +329,133 @@ int polyConv(vector_t v1, vector_t v2, vector_t* out){
 *
 * 
 *******************************************************************************/
-int polyPower(vector_t* v, int N){
-	
+vector_t poly_power(vector_t v, int N){
+	vector_t out;
 	int i;
-	if(!v->initialized){
+	if(!v.initialized){
 		printf("ERROR: vector not initialized yet\n");
-		return -1;
+		return out;
 	}
-	if(N < 2){
-		printf("ERROR: order must be > 1\n");
-		return -1;
+	if(N < 0){
+		printf("ERROR: no negative exponents\n");
+		return out;
 	}
+	if(N == 1){
+		return v;
+	}
+	if(N == 0){
+		out = create_vector(1);
+		out.data[0] = 1;
+		return out;
+	}
+	out = duplicate_vector(v);
 	vector_t temp;
 	for(i=2;i<=N;i++){
-		polyConv(*v, *v, &temp);
-		*v = temp;
-		printf("v = conv(v,v)\n");
-		printVectorSciNotation(*v);
+		temp = poly_conv(out, v);
+		out  = duplicate_vector(temp);
+		destroy_vector(&temp);
 	}
-	return 0;
+
+	return out;
 }
 
 /*******************************************************************************
-* vector_t butterPoly(int N, float wc)
+* vector_t polyButter(int N, float wc)
 *
 * Return vector of continuous Butterworth denominator or order N and cutoff wc
 *******************************************************************************/
-vector_t butterPoly(int N, float wc){
+vector_t poly_butter(int N, float wc){
 	int i;
 	vector_t filter, P2, P3, temp;
 	if(N < 1){
 		printf("ERROR: order must be > 1\n");
 		return filter;
 	}
-	filter = createVector(1);
+	if(N > 10){
+		printf("ERROR: order must be <= 10 to prevent overflow\n");
+		return filter;
+	}
+	filter = create_vector(1);
 	filter.data[0] = 1;
-	P2 = createVector(2);
-	P3 = createVector(3);
+	P2 = create_vector(2);
+	P3 = create_vector(3);
 	if(N%2 == 0){
 		for(i=1;i<=N/2;i++){
 			P3.data[0] = 1/(wc*wc);
 			P3.data[1] = -2*cos((2*i + N - 1)*PI/(2*N))/wc;
 			P3.data[2] = 1;
-			temp = duplicateVector(filter);
-			polyConv(temp,P3,&filter);
-			destroyVector(&temp);
+			temp = duplicate_vector(filter);
+			filter = poly_conv(temp,P3);
+			destroy_vector(&temp);
 		}
 	}
 	if(N%2 == 1){	
 		P2.data[0] = 1/wc;
 		P2.data[1] = 1;
-		temp = duplicateVector(filter);
-		polyConv(temp,P2,&filter);
-		destroyVector(&temp);
+		temp = duplicate_vector(filter);
+		filter = poly_conv(temp,P2);
+		destroy_vector(&temp);
 		for(i=1;i<=(N-1)/2;i++){
 			P3.data[0] = 1/(wc*wc);
 			P3.data[1] = -2*cos((2*i + N - 1)*PI/(2*N))/wc;
 			P3.data[2] = 1;
-			temp = duplicateVector(filter);
-			polyConv(temp,P3,&filter);
-			destroyVector(&temp);
+			temp = duplicate_vector(filter);
+			filter = poly_conv(temp,P3);
+			destroy_vector(&temp);
 		}
 	}
-	destroyVector(&P2);
-	destroyVector(&P3);
+	destroy_vector(&P2);
+	destroy_vector(&P3);
 	return filter;
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+/*******************************************************************************
+* int C2DTustin(vector_t B, vector_t A, vector_t* Bz, vector_t* Az, \
+* float h, float w)
+* 
+*******************************************************************************/
+int C2DTustin(vector_t B, vector_t A, vector_t* Bz, vector_t* Az, float h, float w){
+	int i,j;
+	if(!B.initialized || !A.initialized){
+		printf("ERROR: vector not initialized yet\n");
+		return -1;
+	}
+	
+	float f = 2*(1 - cos(w*h)) / (w*h*sin(w*h));
+	float c = 2/(f*h);
+	int   m = B.len - 1;			// highest order of num
+	int   n = A.len - 1;			// highest order of den
+	float A0;
+	vector_t num = create_vector(n+1);	// make vectors with den order +1
+	vector_t den = create_vector(n+1);
+	vector_t p1 = create_vector(2);	// (z - 1)
+	p1.data[0] = 1;
+	p1.data[1] = -1;
+	vector_t p2 = create_vector(2);	// (z + 1)
+	p2.data[0] = 1;
+	p2.data[1] = 1;
+	vector_t temp;
+	
+	for(i=0;i<=m;i++){				// from zeroth up to and including mth
+		temp = poly_conv(poly_power(p1,m-i),poly_power(p2,n-m+i));
+		for(j=0;j<=n;j++){
+			num.data[j] = num.data[j] + B.data[m-i]*pow(c,m-i)*temp.data[j];
+		}
+		destroy_vector(&temp);
+	}
+	for(i=0;i<=n;i++){
+		temp = poly_conv(poly_power(p1,n-i),poly_power(p2,i));
+		for(j=0;j<=n;j++){
+			den.data[j] = den.data[j] + A.data[n-i]*pow(c,n-i)*temp.data[j];
+		}
+		destroy_vector(&temp);
+	}
+	A0 = den.data[0];
+	for(i=0;i<n+1;i++){
+		num.data[i] = num.data[i]/A0;
+		den.data[i] = den.data[i]/A0;
+	}
+	*Bz = num;
+	*Az = den;
+	return 0;
+}
