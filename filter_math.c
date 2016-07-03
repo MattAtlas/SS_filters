@@ -320,12 +320,11 @@ vector_t poly_conv(vector_t v1, vector_t v2){
 			out.data[i+j] += v1.data[i] * v2.data[j];
 		}
 	}
-	
 	return out;	
 }
 
 /*******************************************************************************
-* int polyPow(vector_t* v, int N)
+* vector_t poly_power(vector_t v, int N)
 *
 * 
 *******************************************************************************/
@@ -340,22 +339,21 @@ vector_t poly_power(vector_t v, int N){
 		printf("ERROR: no negative exponents\n");
 		return out;
 	}
-	if(N == 1){
-		return v;
-	}
 	if(N == 0){
 		out = create_vector(1);
 		out.data[0] = 1;
 		return out;
-	}
+	}	
 	out = duplicate_vector(v);
+	if(N == 1){
+		return out;
+	}
 	vector_t temp;
 	for(i=2;i<=N;i++){
 		temp = poly_conv(out, v);
 		out  = duplicate_vector(temp);
 		destroy_vector(&temp);
 	}
-
 	return out;
 }
 
@@ -420,7 +418,6 @@ int C2DTustin(vector_t B, vector_t A, vector_t* Bz, vector_t* Az, float h, float
 		printf("ERROR: vector not initialized yet\n");
 		return -1;
 	}
-	
 	float f = 2*(1 - cos(w*h)) / (w*h*sin(w*h));
 	float c = 2/(f*h);
 	int   m = B.len - 1;			// highest order of num
@@ -428,25 +425,34 @@ int C2DTustin(vector_t B, vector_t A, vector_t* Bz, vector_t* Az, float h, float
 	float A0;
 	vector_t num = create_vector(n+1);	// make vectors with den order +1
 	vector_t den = create_vector(n+1);
-	vector_t p1 = create_vector(2);	// (z - 1)
-	p1.data[0] = 1;
-	p1.data[1] = -1;
-	vector_t p2 = create_vector(2);	// (z + 1)
-	p2.data[0] = 1;
-	p2.data[1] = 1;
-	vector_t temp;
+	vector_t p1  = create_vector(2);	// (z - 1)
+	p1.data[0]   = 1;
+	p1.data[1]   = -1;
+	vector_t p2  = create_vector(2);	// (z + 1)
+	p2.data[0]   = 1;
+	p2.data[1]   = 1;
+	vector_t temp, v1, v2;
 	
 	for(i=0;i<=m;i++){				// from zeroth up to and including mth
-		temp = poly_conv(poly_power(p1,m-i),poly_power(p2,n-m+i));
-		for(j=0;j<=n;j++){
-			num.data[j] = num.data[j] + B.data[m-i]*pow(c,m-i)*temp.data[j];
+
+		v1 = poly_power(p1,m-i);
+		v2 = poly_power(p2,n-m+i);
+		temp = poly_conv(v1,v2);
+		destroy_vector(&v1);
+		destroy_vector(&v2);
+		for(j=0;j<n+1;j++){
+			num.data[j] += B.data[i]*pow(c,m-i)*temp.data[j];
 		}
 		destroy_vector(&temp);
 	}
 	for(i=0;i<=n;i++){
-		temp = poly_conv(poly_power(p1,n-i),poly_power(p2,i));
-		for(j=0;j<=n;j++){
-			den.data[j] = den.data[j] + A.data[n-i]*pow(c,n-i)*temp.data[j];
+		v1 = poly_power(p1,n-i);
+		v2 = poly_power(p2,i);
+		temp = poly_conv(v1,v2);
+		destroy_vector(&v1);
+		destroy_vector(&v2);
+		for(j=0;j<n+1;j++){
+			den.data[j] += A.data[i]*pow(c,n-i)*temp.data[j];
 		}
 		destroy_vector(&temp);
 	}
