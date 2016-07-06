@@ -572,6 +572,29 @@ matrix_t matrixAdd(matrix_t A, matrix_t B){
 *
 * 
 *******************************************************************************/
+vector_t vector_add(vector_t v1, vector_t v2){
+	int i;
+	vector_t out;
+	if(!v1.initialized||!v2.initialized){
+		printf("ERROR: vector not initialized yet\n");
+		return out;
+	}
+	if(v1.len != v2.len){
+		printf("Invalid vector sizes");
+		return out;
+	}
+	out = create_vector(v1.len);
+	for(i=0;i<(v1.len);i++){
+		out.data[i]= v1.data[i] + v2.data[i];
+	}
+	return  out;
+}
+
+/*******************************************************************************
+* 
+*
+* 
+*******************************************************************************/
 int transposeMatrix(matrix_t* A){
 	int i,j;
 	if(!A->initialized){
